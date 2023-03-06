@@ -18,7 +18,7 @@ import java.util.Locale
 
 class KomikIndoID : ParsedHttpSource() {
     override val name = "KomikIndoID"
-    override val baseUrl = "https://komikindo.id"
+    override val baseUrl = "https://komikindo.pro"
     override val lang = "id"
     override val supportsLatest = true
     override val client: OkHttpClient = network.cloudflareClient
@@ -369,6 +369,7 @@ class KomikIndoID : ParsedHttpSource() {
         Genre("Shoujo Ai", "shoujo-ai"),
         Genre("Shounen Ai", "shounen-ai"),
         Genre("Slice of Life", "slice-of-life"),
+
         Genre("Sports", "sports"),
         Genre("Superhero", "superhero"),
         Genre("Thriller", "thriller"),

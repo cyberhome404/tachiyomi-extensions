@@ -1,16 +1,12 @@
 package eu.kanade.tachiyomi.extension.id.doujindesu
 
 import eu.kanade.tachiyomi.network.GET
-import eu.kanade.tachiyomi.network.POST
 import eu.kanade.tachiyomi.source.model.Filter
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.online.ParsedHttpSource
-import eu.kanade.tachiyomi.util.asJsoup
-import okhttp3.FormBody
-import okhttp3.Headers
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -30,7 +26,7 @@ class DoujinDesu : ParsedHttpSource() {
     // Private stuff
 
     private val DATE_FORMAT by lazy {
-        SimpleDateFormat("EEEE, dd MMMM yyyy", Locale("id"))
+        SimpleDateFormat("MMMM d, yyyy", Locale("id"))
     }
 
     private fun parseStatus(status: String) = when {
@@ -238,9 +234,7 @@ class DoujinDesu : ParsedHttpSource() {
         Genre("Yuri"),
     )
 
-    private class CategoryNames(categories: Array<Category>) :
-        Filter.Select<Category>("Category", categories, 0)
-
+    private class CategoryNames(categories: Array<Category>) : Filter.Select<Category>("Category", categories, 0)
     private class OrderBy(orders: Array<Order>) : Filter.Select<Order>("Order", orders, 0)
     private class GenreList(genres: List<Genre>) : Filter.Group<Genre>("Genre", genres)
     private class StatusList(statuses: Array<Status>) : Filter.Select<Status>("Status", statuses, 0)
@@ -267,8 +261,8 @@ class DoujinDesu : ParsedHttpSource() {
         }
     }
 
-    private fun getNumberFromString(epsStr: String?): Float {
-        return epsStr?.filter { it.isDigit() }?.toFloatOrNull() ?: -1f
+    private fun getNumberFromString(epsStr: String): String {
+        return epsStr.filter { it.isDigit() }
     }
 
     private fun reconstructDate(dateStr: String): Long {
@@ -278,20 +272,18 @@ class DoujinDesu : ParsedHttpSource() {
 
     // Popular
 
-    override fun popularMangaFromElement(element: Element): SManga =
-        basicInformationFromElement(element)
+    override fun popularMangaFromElement(element: Element): SManga = basicInformationFromElement(element)
 
     override fun popularMangaRequest(page: Int): Request {
-        return GET("$baseUrl/manga/page/$page/?title=&author=&character=&statusx=&typex=&order=popular", headers)
+        return GET("$baseUrl/manga/page/$page/?&order=popular", headers)
     }
 
     // Latest
 
-    override fun latestUpdatesFromElement(element: Element): SManga =
-        basicInformationFromElement(element)
+    override fun latestUpdatesFromElement(element: Element): SManga = basicInformationFromElement(element)
 
     override fun latestUpdatesRequest(page: Int): Request {
-        return GET("$baseUrl/manga/page/$page/?title=&author=&character=&statusx=&typex=&order=update", headers)
+        return GET("$baseUrl/manga/page/$page/?order=update", headers)
     }
 
     // Element Selectors
@@ -307,8 +299,7 @@ class DoujinDesu : ParsedHttpSource() {
     // Search & FIlter
 
     override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
-        val url = "$baseUrl/manga/page/$page/".toHttpUrlOrNull()?.newBuilder()!!
-            .addQueryParameter("title", query)
+        val url = "$baseUrl/manga/page/$page/".toHttpUrlOrNull()?.newBuilder()!!.addQueryParameter("title", query)
         (if (filters.isEmpty()) getFilterList() else filters).forEach { filter ->
             when (filter) {
                 is CategoryNames -> {
@@ -323,9 +314,7 @@ class DoujinDesu : ParsedHttpSource() {
                     filter.state
                         .filter { it.state }
                         .let { list ->
-                            if (list.isNotEmpty()) {
-                                list.forEach { genre -> url.addQueryParameter("genre[]", genre.id) }
-                            }
+                            if (list.isNotEmpty()) { list.forEach { genre -> url.addQueryParameter("genre[]", genre.id) } }
                         }
                 }
                 is StatusList -> {
@@ -338,8 +327,7 @@ class DoujinDesu : ParsedHttpSource() {
         return GET(url.toString(), headers)
     }
 
-    override fun searchMangaFromElement(element: Element): SManga =
-        basicInformationFromElement(element)
+    override fun searchMangaFromElement(element: Element): SManga = basicInformationFromElement(element)
 
     override fun getFilterList() = FilterList(
         Filter.Header("NB: Filter diabaikan jika memakai pencarian teks!"),
@@ -356,8 +344,7 @@ class DoujinDesu : ParsedHttpSource() {
         val infoElement = document.select("section.metadata").first()!!
         val manga = SManga.create()
         manga.description = when {
-            document.select("section.metadata > div.pb-2 > p:nth-child(1)")
-                .isEmpty() -> "Tidak ada deskripsi yang tersedia bosque"
+            document.select("section.metadata > div.pb-2 > p:nth-child(1)").isEmpty() -> "Tidak ada deskripsi yang tersedia bosque"
             else -> document.select("section.metadata > div.pb-2 > p:nth-child(1)").first()!!.text()
         }
         val genres = mutableListOf<String>()
@@ -365,18 +352,11 @@ class DoujinDesu : ParsedHttpSource() {
             val genre = element.text()
             genres.add(genre)
         }
-        manga.author =
-            document.select("section.metadata > table:nth-child(2) > tbody > tr.pages > td:contains(Author) + td:nth-child(2) > a")
-                .joinToString { it.text() }
+        manga.author = document.select("section.metadata > table:nth-child(2) > tbody > tr.pages > td:contains(Author) + td:nth-child(2) > a").joinToString { it.text() }
         manga.genre = infoElement.select("div.tags > a").joinToString { it.text() }
-        manga.status = parseStatus(
-            document.select("section.metadata > table:nth-child(2) > tbody > tr:nth-child(1) > td:nth-child(2) > a")
-                .first()!!.text(),
-        )
-        manga.thumbnail_url = document.selectFirst("figure.thumbnail img")?.attr("src")
-        manga.artist =
-            document.select("section.metadata > table:nth-child(2) > tbody > tr.pages > td:contains(Character) + td:nth-child(2) > a")
-                .joinToString { it.text() }
+        manga.status = parseStatus(document.select("section.metadata > table:nth-child(2) > tbody > tr:nth-child(1) > td:nth-child(2) > a").first()!!.text())
+        manga.thumbnail_url = document.select("figure.thumbnail > img").attr("src")
+        manga.artist = document.select("section.metadata > table:nth-child(2) > tbody > tr.pages > td:contains(Character) + td:nth-child(2) > a").joinToString { it.text() }
 
         return manga
     }
@@ -385,41 +365,26 @@ class DoujinDesu : ParsedHttpSource() {
 
     override fun chapterFromElement(element: Element): SChapter {
         val chapter = SChapter.create()
-        chapter.chapter_number = getNumberFromString(element.selectFirst("div.epsright chapter")?.text())
+        val number = getNumberFromString(element.select("div.epsright > span > a > chapter").text())
+        chapter.chapter_number = when {
+            (number.isNotEmpty()) -> number.toFloat()
+            else -> 1F
+        }
         chapter.date_upload = reconstructDate(element.select("div.epsleft > span.date").text())
-        chapter.name = element.select("div.epsleft span.lchx a").text()
+        chapter.name = element.select("div.epsleft > span.lchx > a").text()
         chapter.setUrlWithoutDomain(element.select("div.epsleft > span.lchx > a").attr("href"))
 
         return chapter
     }
 
-    override fun headersBuilder(): Headers.Builder =
-        super.headersBuilder()
-            .add("Referer", "$baseUrl/")
-
-    override fun imageRequest(page: Page): Request {
-        val newHeaders = headersBuilder()
-            .set("Accept", "image/avif,image/webp,*/*")
-            .set("Referer", baseUrl)
-            .build()
-
-        return GET(page.imageUrl!!, newHeaders)
-    }
-
     override fun chapterListSelector(): String = "#chapter_list li"
 
     // More parser stuff
-    override fun imageUrlParse(document: Document): String =
-        throw UnsupportedOperationException("Not Used")
+    override fun imageUrlParse(document: Document): String = throw UnsupportedOperationException("Not Used")
 
     override fun pageListParse(document: Document): List<Page> {
-        val id = document.select("#reader").attr("data-id")
-        val body = FormBody.Builder()
-            .add("id", id)
-            .build()
-        return client.newCall(POST("$baseUrl/themes/ajax/ch.php", headers, body)).execute()
-            .asJsoup().select("img").mapIndexed { i, element ->
-                Page(i, "", element.attr("src"))
-            }
+        return document.select("#reader > div.main > div > img").mapIndexed { i, element ->
+            Page(i, "", element.attr("src"))
+        }
     }
 }
